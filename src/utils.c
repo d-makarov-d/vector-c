@@ -15,8 +15,9 @@ bool check_float(PyObject *query, double *target) {
 int check_array(PyObject *arr, double target[], const char *value_name) {
     if (Py_TYPE(arr)->tp_iter != NULL) {
         PyObject *iter = PyObject_GetIter(arr);
+        PyObject *itm;
         for (int i=0; i<3; i++) {
-            PyObject *itm = PyIter_Next(iter);
+            itm = PyIter_Next(iter);
             if (itm == NULL) {
                 char *msg;
                 asprintf(
@@ -25,6 +26,8 @@ int check_array(PyObject *arr, double target[], const char *value_name) {
                         value_name, i
                 );
                 PyErr_SetString(PyExc_ValueError, msg);
+                Py_DECREF(msg);
+                Py_DECREF(iter);
                 return -1;
             }
             if (check_float(itm, target + i))
@@ -36,8 +39,12 @@ int check_array(PyObject *arr, double target[], const char *value_name) {
                     value_name, Py_TYPE(itm)->tp_name, i
             );
             PyErr_SetString(PyExc_TypeError, msg);
+            Py_DECREF(msg);
+            Py_DECREF(itm);
+            Py_DECREF(iter);
             return -1;
         }
+        Py_DECREF(itm);
         if (PyIter_Next(iter) != NULL) {
             char *msg;
             asprintf(
@@ -46,6 +53,8 @@ int check_array(PyObject *arr, double target[], const char *value_name) {
                     value_name
             );
             PyErr_SetString(PyExc_ValueError, msg);
+            Py_DECREF(msg);
+            Py_DECREF(iter);
             return -1;
         }
     } else if(PySequence_Check(arr)) {
@@ -57,10 +66,12 @@ int check_array(PyObject *arr, double target[], const char *value_name) {
                     value_name, PySequence_Size(arr)
             );
             PyErr_SetString(PyExc_ValueError, msg);
+            Py_DECREF(msg);
             return -1;
         }
+        PyObject *itm;
         for (int i=0; i<3; i++) {
-            PyObject *itm = PySequence_GetItem(arr, i);
+            itm = PySequence_GetItem(arr, i);
             if (check_float(itm, target + i))
                 continue;
             char *msg;
@@ -70,8 +81,11 @@ int check_array(PyObject *arr, double target[], const char *value_name) {
                     value_name, Py_TYPE(itm)->tp_name, i
             );
             PyErr_SetString(PyExc_TypeError, msg);
+            Py_DECREF(msg);
+            Py_DECREF(itm);
             return -1;
         }
+        Py_DECREF(itm);
     } else {
         char *msg;
         asprintf(
@@ -80,6 +94,7 @@ int check_array(PyObject *arr, double target[], const char *value_name) {
                 value_name, Py_TYPE(arr)->tp_name
         );
         PyErr_SetString(PyExc_TypeError, msg);
+        Py_DECREF(msg);
         return -1;
     }
 

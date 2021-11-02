@@ -27,7 +27,9 @@ static int
 Vector_init(VectorObject *self, PyObject *args, PyObject *kwds) {
     PyObject* cart = NULL;
     if (!PyArg_ParseTuple(args, "|O", &cart)) return -1;
-    return check_array(cart, self->cart, "Vector constructor first argument");
+    int res = check_array(cart, self->cart, "Vector constructor first argument");
+    Py_DECREF(cart);
+    return res;
 }
 
 static PyObject* get_cart(VectorObject *self, void * closure) {
