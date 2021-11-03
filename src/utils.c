@@ -1,4 +1,10 @@
 #include "utils.h"
+#include <math.h>
+
+// DOESN'T WORK WITH __FASTMATH__ !!!
+bool isnan(double val) {
+    return val != val;
+}
 
 bool check_float(PyObject *query, double *target) {
     if (PyFloat_Check(query)) {
@@ -99,4 +105,39 @@ int check_array(PyObject *arr, double target[], const char *value_name) {
     }
 
     return 0;
+}
+
+void spherical_to_cartesian_3(double sph[], double cart[]) {
+    double r = sph[0];
+    double lat = sph[1];
+    double lon = sph[2];
+
+    cart[0] = cos(lon) * cos(lat) * r;   // X
+    cart[1] = sin(lon) * cos(lat) * r;   // Y
+    cart[2] = sin(lat) * r;              // Z
+}
+
+double r_from_cartesian(double cart[]) {
+    double x = cart[0];
+    double y = cart[1];
+    double z = cart[2];
+
+    return sqrt(x*x + y*y + z *z);
+}
+
+double lat_from_cartesian(double cart[], double r) {
+    // r passed to not recalculate it
+    double z = cart[2];
+
+    if (r == 0.d)
+        return 0.d;
+
+    return asin(z / r);
+}
+
+double lon_from_cartesian(double cart[]) {
+    double x = cart[0];
+    double y = cart[1];
+
+    return atan2(y, x);
 }

@@ -1,5 +1,6 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <math.h>
 // #include <stdio.h>
 #include "structmember.h"
 #include "utils.h"
@@ -7,8 +8,13 @@
 typedef struct {
     PyObject_HEAD
     double cart[3];
+    double sph[3];
 } VectorObject;
 
+void clear_arr(double arr[], int n) {
+    for (int i=0; i<n; i++)
+        arr[i] = NAN;
+}
 
 static void
 Vector_dealloc(VectorObject *self) {
@@ -20,6 +26,9 @@ static PyObject *
 Vector_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     VectorObject *self;
     self = (VectorObject *) type->tp_alloc(type, 0);
+    if (self != NULL) {
+        clear_arr(self->sph, 3);
+    }
     return (PyObject *) self;
 }
 
@@ -31,13 +40,49 @@ Vector_init(VectorObject *self, PyObject *args, PyObject *kwds) {
     Py_DECREF(cart);
     return res;
 }
-
+// Cartesian -----------------------------------------------------------------------------------------------------------
 static PyObject* get_cart(VectorObject *self, void * closure) {
     return Py_BuildValue("(ddd)", self->cart[0], self->cart[1], self->cart[2]);
 }
 
+static int
+set_cart(VectorObject *self, PyObject *cart, void* closure) {
+    int res = check_array(cart, self->cart, "Vector cartesian component");
+    // clear spherical coordinates, since they are no more valid
+    if (res == 0)
+        clear_arr(self->sph, 3);
+
+    return res;
+}
+
+// Spherical -----------------------------------------------------------------------------------------------------------
+static PyObject* get_sph(VectorObject *self, void * closure) {
+    // R
+    if (isnan(self->sph[0]))
+        self->sph[0] = r_from_cartesian(self->cart);
+    // lat
+    if (isnan(self->sph[1]))
+        self->sph[1] = lat_from_cartesian(self->cart, self->sph[0]);
+    // lon
+    if (isnan(self->sph[2]))
+        self->sph[2] = lon_from_cartesian(self->cart);
+    return Py_BuildValue("(ddd)", self->sph[0], self->sph[1], self->sph[2]);
+}
+
+static int
+set_sph(VectorObject *self, PyObject *sph, void* closure) {
+    int res = check_array(sph, self->sph, "Vector spherical component");
+    if (res != 0) {
+        clear_arr(self->sph, 3);
+        return res;
+    }
+    spherical_to_cartesian_3(self->sph, self->cart);
+    return 0;
+}
+
 static PyGetSetDef Vector_get_sets[] = {
-    {"cart", (getter) get_cart, NULL, "Cartesian components", NULL},
+    {"cart", (getter) get_cart, (setter) set_cart, "Cartesian components", NULL},
+    {"sph", (getter) get_sph, (setter) set_sph, "Spherical components", NULL},
     {NULL}
 };
 
