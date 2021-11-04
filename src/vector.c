@@ -1,7 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <math.h>
-// #include <stdio.h>
+#include <stdio.h>
 #include "structmember.h"
 #include "utils.h"
 
@@ -10,6 +10,7 @@ typedef struct {
     double cart[3];
     double sph[3];
 } VectorObject;
+static PyTypeObject VectorType;
 
 void clear_arr(double arr[], int n) {
     for (int i=0; i<n; i++)
@@ -19,6 +20,7 @@ void clear_arr(double arr[], int n) {
 static void
 Vector_dealloc(VectorObject *self) {
     Py_XDECREF(self->cart);
+    Py_XDECREF(self->sph);
     Py_TYPE(self)->tp_free((PyObject *) self);
 }
 
@@ -69,6 +71,110 @@ static PyObject* get_sph(VectorObject *self, void * closure) {
     return Py_BuildValue("(ddd)", self->sph[0], self->sph[1], self->sph[2]);
 }
 
+// Algebra -------------------------------------------------------------------------------------------------------------
+static PyObject *
+Vector_add(PyObject *self, PyObject *other) {
+    if (!is_subclass(other, &VectorType, "+"))
+        return NULL;
+
+    PyObject *args = Py_BuildValue(
+        "((ddd))",
+         ((VectorObject *)self)->cart[0] + ((VectorObject *)other)->cart[0],
+         ((VectorObject *)self)->cart[1] + ((VectorObject *)other)->cart[1],
+         ((VectorObject *)self)->cart[2] + ((VectorObject *)other)->cart[2]
+    );
+
+    PyObject *obj = PyObject_CallObject((PyObject *) &VectorType, args);
+
+    Py_DECREF(args);
+
+    return obj;
+}
+
+static PyObject *
+Vector_sub(PyObject *self, PyObject *other) {
+    if (!is_subclass(other, &VectorType, "-"))
+        return NULL;
+
+    PyObject *args = Py_BuildValue(
+        "((ddd))",
+         ((VectorObject *)self)->cart[0] - ((VectorObject *)other)->cart[0],
+         ((VectorObject *)self)->cart[1] - ((VectorObject *)other)->cart[1],
+         ((VectorObject *)self)->cart[2] - ((VectorObject *)other)->cart[2]
+    );
+
+    PyObject *obj = PyObject_CallObject((PyObject *) &VectorType, args);
+
+    Py_DECREF(args);
+
+    return obj;
+}
+
+static PyObject *
+Vector_mul(PyObject *self, PyObject *other) {
+    double d;
+    if (check_float(other, &d)) {
+        PyObject *args = Py_BuildValue(
+            "((ddd))",
+             d * ((VectorObject *)self)->cart[0],
+             d * ((VectorObject *)self)->cart[1],
+             d * ((VectorObject *)self)->cart[2]
+        );
+
+        PyObject *obj = PyObject_CallObject((PyObject *) &VectorType, args);
+
+        Py_DECREF(args);
+
+        return obj;
+    } else if (is_subclass(other, &VectorType, "*")) {
+        // Py_INCREF(((VectorObject *)self)->cart);
+        // Py_INCREF(((VectorObject *)other)->cart);
+
+        double *a = ((VectorObject *)self)->cart;
+        double *b = ((VectorObject *)other)->cart;
+
+        PyObject *args = Py_BuildValue(
+            "((ddd))",
+             a[1] * b[2] - a[2] * b[1],
+             a[2] * b[0] - a[0] * b[2],
+             a[0] * b[1] - a[1] * b[0]
+        );
+
+        PyObject *obj = PyObject_CallObject((PyObject *) &VectorType, args);
+
+        Py_DECREF(args);
+
+        // Py_DECREF(((VectorObject *)self)->cart);
+        // Py_DECREF(((VectorObject *)other)->cart);
+        return obj;
+    } else {
+        return NULL;
+    }
+}
+
+static PyObject *
+Vector_neg(VectorObject *self) {
+    PyObject *args = Py_BuildValue(
+        "((ddd))",
+         - self->cart[0],
+         - self->cart[1],
+         - self->cart[2]
+    );
+
+    PyObject *obj = PyObject_CallObject((PyObject *) &VectorType, args);
+
+    Py_DECREF(args);
+
+    return obj;
+}
+
+static PyNumberMethods Vector_as_number = {
+    .nb_add = Vector_add,
+    .nb_subtract = Vector_sub,
+    .nb_multiply = Vector_mul,
+    .nb_negative = (unaryfunc) Vector_neg,
+};
+
 static int
 set_sph(VectorObject *self, PyObject *sph, void* closure) {
     int res = check_array(sph, self->sph, "Vector spherical component");
@@ -86,6 +192,57 @@ static PyGetSetDef Vector_get_sets[] = {
     {NULL}
 };
 
+static Py_hash_t
+Vector_hash(VectorObject *self) {
+    return arr_hash(self->cart, 3);
+}
+
+static PyObject *
+Vector_richcompare(PyObject *self, PyObject *other, int op) {
+    if (PyObject_TypeCheck(other, &VectorType) == 0)
+        return Py_NotImplemented;
+
+    if (op == Py_EQ) {
+        bool res = arr_cmp(((VectorObject *)self)->cart, ((VectorObject *)other)->cart, 3);
+        if (res)
+            return Py_True;
+        return Py_False;
+    } else if (op == Py_NE) {
+        bool res = arr_cmp(((VectorObject *)self)->cart, ((VectorObject *)other)->cart, 3);
+        if (!res)
+            return Py_True;
+        return Py_False;
+    } else {
+        return Py_NotImplemented;
+    }
+}
+
+static PyObject *Vector_repr(VectorObject *self) {
+    char *msg;
+    asprintf(
+        &msg,
+        "%s([%f, %f, %f])",
+        Py_TYPE(self)->tp_name, self->cart[0], self->cart[1], self->cart[2]
+    );
+    PyObject *str = Py_BuildValue("s", msg);
+    Py_DECREF(msg);
+
+    return str;
+}
+
+static PyObject *Vector_str(VectorObject *self) {
+    char *msg;
+    asprintf(
+        &msg,
+        "[%f, %f, %f>",
+        self->cart[0], self->cart[1], self->cart[2]
+    );
+    PyObject *str = Py_BuildValue("s", msg);
+    Py_DECREF(msg);
+
+    return str;
+}
+
 static PyTypeObject VectorType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name = "vector.Vector",
@@ -97,6 +254,11 @@ static PyTypeObject VectorType = {
     .tp_dealloc = (destructor) Vector_dealloc,
     .tp_new = Vector_new,
     .tp_getset = Vector_get_sets,
+    .tp_as_number = &Vector_as_number,
+    .tp_hash = (hashfunc) Vector_hash,
+    .tp_richcompare = Vector_richcompare,
+    .tp_repr = (reprfunc)Vector_repr,
+    .tp_str = (reprfunc)Vector_str,
 };
 
 static PyModuleDef vectormodule = {

@@ -6,6 +6,53 @@ bool isnan(double val) {
     return val != val;
 }
 
+/* Hash for double arrays.
+From https://github.com/python/cpython/blob/main/Objects/tupleobject.c
+CPython tuple hash implementation
+*/
+#if SIZEOF_PY_UHASH_T > 4
+#define _PyHASH_XXPRIME_1 ((Py_uhash_t)11400714785074694791ULL)
+#define _PyHASH_XXPRIME_2 ((Py_uhash_t)14029467366897019727ULL)
+#define _PyHASH_XXPRIME_5 ((Py_uhash_t)2870177450012600261ULL)
+#define _PyHASH_XXROTATE(x) ((x << 31) | (x >> 33))  /* Rotate left 31 bits */
+#else
+#define _PyHASH_XXPRIME_1 ((Py_uhash_t)2654435761UL)
+#define _PyHASH_XXPRIME_2 ((Py_uhash_t)2246822519UL)
+#define _PyHASH_XXPRIME_5 ((Py_uhash_t)374761393UL)
+#define _PyHASH_XXROTATE(x) ((x << 13) | (x >> 19))  /* Rotate left 13 bits */
+#endif
+
+/* Tests have shown that it's not worth to cache the hash value, see
+   https://bugs.python.org/issue9685 */
+Py_hash_t arr_hash(double v[], Py_ssize_t len) {
+    Py_uhash_t acc = _PyHASH_XXPRIME_5;
+    for (Py_ssize_t i = 0; i < len; i++) {
+        Py_uhash_t lane = _Py_HashDouble(v[i]);
+        if (lane == (Py_uhash_t)-1) {
+            return -1;
+        }
+        acc += lane * _PyHASH_XXPRIME_2;
+        acc = _PyHASH_XXROTATE(acc);
+        acc *= _PyHASH_XXPRIME_1;
+    }
+
+    /* Add input length, mangled to keep the historical value of hash(()). */
+    acc += len ^ (_PyHASH_XXPRIME_5 ^ 3527539UL);
+
+    if (acc == (Py_uhash_t)-1) {
+        return 1546275796;
+    }
+    return acc;
+}
+
+bool arr_cmp(double a[], double b[], Py_ssize_t n) {
+    for (Py_ssize_t i=0; i<n; i++) {
+        if (a[i] != b[i])
+            return false;
+    }
+    return true;
+}
+
 bool check_float(PyObject *query, double *target) {
     if (PyFloat_Check(query)) {
         *target = PyFloat_AsDouble(query);
@@ -106,6 +153,21 @@ int check_array(PyObject *arr, double target[], const char *value_name) {
 
     return 0;
 }
+
+bool is_subclass(PyObject *query, PyTypeObject *cls, const char *operand) {
+    if (PyObject_TypeCheck(query, cls) == 0) {
+        char *msg;
+        asprintf(
+                &msg,
+                "unsupported operand type(s) for %s: '%s' and '%s'",
+                operand, cls->tp_name, Py_TYPE(query)->tp_name
+        );
+        PyErr_SetString(PyExc_TypeError, msg);
+        Py_DECREF(msg);
+        return false;
+    }
+    return true;
+};
 
 void spherical_to_cartesian_3(double sph[], double cart[]) {
     double r = sph[0];

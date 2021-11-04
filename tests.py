@@ -1,3 +1,4 @@
+import time
 import unittest
 import numpy as np
 from astropy.coordinates import cartesian_to_spherical, spherical_to_cartesian
@@ -52,6 +53,19 @@ class MIterWrong(MIterable):
                 return self.n
         else:
             raise StopIteration
+
+
+class Vector1(Vector):
+    def __init__(self, cart):
+        cart[0] += 1
+        super().__init__(cart)
+
+
+class Vector2(Vector):
+    def __add__(self, other):
+        if issubclass(other.__class__, Vector2):
+            return Vector2([a + b for a, b in zip(self.cart, other.cart)])
+        return super().__add__(other)
 
 
 class Test(unittest.TestCase):
@@ -219,6 +233,70 @@ class Test(unittest.TestCase):
             f,
         )
 
+    def test_add(self):
+        v1 = Vector([1, 2, 3])
+        v2 = Vector([3, 3, 3])
+        self.assertEqual((4, 5, 6), (v1 + v2).cart)
+        r, lat, lon = cartesian_to_spherical(4, 5, 6)
+        self.assertEqual((4, 5, 6), (v1 + v2).cart)
+
+    def test_add_wrong_type(self):
+        v = Vector([1, 2, 3])
+        self.assertRaisesRegex(
+            TypeError,
+            r"unsupported operand type\(s\) for \+: 'vector\.Vector' and 'int'",
+            lambda: v + 1,
+        )
+
+    def test_add_subclass_and_class(self):
+        v1 = Vector1([1, 2, 3])
+        v2 = Vector([1, 2, 3])
+        self.assertEqual((3, 4, 6), (v1 + v2).cart)
+
+    def test_add_subclass_and_subclass(self):
+        v1 = Vector1([1, 2, 3])
+        v2 = Vector2([1, 2, 3])
+        self.assertEqual((3, 4, 6), (v1 + v2).cart)
+
+    def test_subtract(self):
+        v1 = Vector([1, 2, 3])
+        v2 = Vector([3, 2, 1])
+        self.assertEqual((-2, 0, 2), (v1 - v2).cart)
+
+    def test_subtract2(self):
+        v1 = Vector([1, 2, 3])
+        v1 -= Vector([3, 2, 1])
+        self.assertEqual((-2, 0, 2), v1.cart)
+
+    def test_neg(self):
+        v = Vector([1, 2, 3])
+        v = -v
+        self.assertEqual((-1, -2, -3), v.cart)
+
+    def test_multiply(self):
+        v1 = Vector([1, 2, 3])
+        v2 = Vector([4, -6, 1])
+
+        self.assertEqual((2, 4, 6), (v1 * 2).cart)
+
+        a = np.array(v1.cart)
+        b = np.array(v2.cart)
+        self.assertEqual(tuple(np.cross(a, b)), (v1 * v2).cart)
+
+    def test_hash(self):
+        self.assertEqual(hash((1, 2, 3)), hash(Vector([1, 2, 3])))
+
+    def test_compare(self):
+        self.assertEqual(Vector([1, 2, 3]), Vector([1, 2, 3]))
+        s = {Vector([1, 2, 3]), Vector([2, 2, 3]), Vector([1, 2, 3]), Vector([2, 2, 3])}
+        self.assertEqual(2, len(s))
+
+    def test_repr(self):
+        self.assertEqual(Vector([1, 2, 3]).__repr__(), 'vector.Vector([1.000000, 2.000000, 3.000000])')
+
+    def test_str(self):
+        self.assertEqual(Vector([1, 2, 3]).__str__(), '[1.000000, 2.000000, 3.000000>')
+
 
 class Math(unittest.TestCase):
     def test_to_spherical_conversion(self):
@@ -257,3 +335,23 @@ class Math(unittest.TestCase):
                         np.finfo(float).eps ** 0.5 >
                         max([abs(x - y) for x, y in zip((x, y, z), vec.cart)])
                     )
+
+    def test_speed(self):
+        n = int(1e6)
+        arr = np.random.random((n, 3))
+        vects = np.array([Vector(list(row)) for row in arr])
+        vects2 = np.array([Vector2(list(row)) for row in arr])
+
+        t = time.time()
+        np.sum(arr, axis=0)
+        t1 = time.time() - t
+        t = time.time()
+        np.sum(vects, axis=0)
+        t2 = time.time() - t
+        t = time.time()
+        np.sum(vects2, axis=0)
+        t3 = time.time() - t
+
+        print(t1)
+        print(t2)
+        print(t3)
