@@ -1,4 +1,3 @@
-import time
 import unittest
 import numpy as np
 from astropy.coordinates import cartesian_to_spherical, spherical_to_cartesian
@@ -298,6 +297,102 @@ class Test(unittest.TestCase):
         self.assertEqual(Vector([1, 2, 3]).__str__(), '[1.000000, 2.000000, 3.000000>')
 
 
+class Components(unittest.TestCase):
+    def test_x(self):
+        v = Vector([1, 2, 3])
+        self.assertEqual(1, v.x)
+        v.x = 4
+        self.assertEqual(4, v.x)
+        v.x += 1
+        self.assertEqual(5, v.x)
+        def f():
+            v.x = "g"
+        self.assertRaisesRegex(
+            TypeError,
+            'Vector.x must be numeric, got "str"',
+            f,
+        )
+
+    def test_y(self):
+        v = Vector([1, 2, 3])
+        self.assertEqual(2, v.y)
+        v.y = 4
+        self.assertEqual(4, v.y)
+        v.y += 1
+        self.assertEqual(5, v.y)
+        def f():
+            v.y = "g"
+        self.assertRaisesRegex(
+            TypeError,
+            'Vector.y must be numeric, got "str"',
+            f,
+        )
+
+    def test_z(self):
+        v = Vector([1, 2, 3])
+        self.assertEqual(3, v.z)
+        v.z = 4
+        self.assertEqual(4, v.z)
+        v.z += 1
+        self.assertEqual(5, v.z)
+        def f():
+            v.z = "g"
+        self.assertRaisesRegex(
+            TypeError,
+            'Vector.z must be numeric, got "str"',
+            f,
+        )
+
+    def test_r(self):
+        v = Vector([1, 2, 3])
+        self.assertEqual(v.r, (1 + 4 + 9) ** 0.5)
+        v.r = 4
+        self.assertEqual(v.r, 4)
+        r, lat, lon = cartesian_to_spherical(*v.cart)
+        self.assertEqual(v.r, r.value)
+        self.assertEqual(v.sph[1], lat.value)
+        self.assertEqual(v.sph[2], lon.value)
+        def f():
+            v.r = "g"
+        self.assertRaisesRegex(
+            TypeError,
+            'Vector.r must be numeric, got "str"',
+            f,
+        )
+
+    def test_lat(self):
+        v = Vector([0.1, 0.2, 0.3])
+        v.lat = 1.5
+        self.assertEqual(v.lat, 1.5)
+        r, lat, lon = cartesian_to_spherical(*v.cart)
+        self.assertEqual(v.r, r.value)
+        self.assertEqual(v.lat, lat.value)
+        self.assertEqual(v.sph[2], lon.value)
+        def f():
+            v.lat = "g"
+        self.assertRaisesRegex(
+            TypeError,
+            'Vector.lat must be numeric, got "str"',
+            f,
+        )
+
+    def test_llon(self):
+        v = Vector([0.1, 0.2, 0.3])
+        v.lon = 1.5
+        self.assertEqual(v.lon, 1.5)
+        r, lat, lon = cartesian_to_spherical(*v.cart)
+        self.assertEqual(v.r, r.value)
+        self.assertEqual(v.lat, lat.value)
+        self.assertEqual(v.lon, lon.value)
+        def f():
+            v.lon = "g"
+        self.assertRaisesRegex(
+            TypeError,
+            'Vector.lon must be numeric, got "str"',
+            f,
+        )
+
+
 class Math(unittest.TestCase):
     def test_to_spherical_conversion(self):
         rs = np.linspace(1e-3, 10, 11)
@@ -335,23 +430,3 @@ class Math(unittest.TestCase):
                         np.finfo(float).eps ** 0.5 >
                         max([abs(x - y) for x, y in zip((x, y, z), vec.cart)])
                     )
-
-    def test_speed(self):
-        n = int(1e6)
-        arr = np.random.random((n, 3))
-        vects = np.array([Vector(list(row)) for row in arr])
-        vects2 = np.array([Vector2(list(row)) for row in arr])
-
-        t = time.time()
-        np.sum(arr, axis=0)
-        t1 = time.time() - t
-        t = time.time()
-        np.sum(vects, axis=0)
-        t2 = time.time() - t
-        t = time.time()
-        np.sum(vects2, axis=0)
-        t3 = time.time() - t
-
-        print(t1)
-        print(t2)
-        print(t3)

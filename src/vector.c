@@ -57,6 +57,78 @@ set_cart(VectorObject *self, PyObject *cart, void* closure) {
     return res;
 }
 
+static PyObject* get_x(VectorObject *self, void * closure) {
+    return Py_BuildValue("d", self->cart[0]);
+}
+
+static int
+set_x(VectorObject *self, PyObject *x, void* closure) {
+    bool res = check_float(x, self->cart);
+    // clear spherical coordinates, since they are no more valid
+    if (res) {
+        clear_arr(self->sph, 3);
+        return 0;
+    } else {
+        char *msg;
+        asprintf(
+                &msg,
+                "Vector.x must be numeric, got \"%s\"",
+                Py_TYPE(x)->tp_name
+        );
+        PyErr_SetString(PyExc_TypeError, msg);
+        Py_DECREF(msg);
+        return -1;
+    }
+}
+
+static PyObject* get_y(VectorObject *self, void * closure) {
+    return Py_BuildValue("d", self->cart[1]);
+}
+
+static int
+set_y(VectorObject *self, PyObject *y, void* closure) {
+    bool res = check_float(y, self->cart + 1);
+    // clear spherical coordinates, since they are no more valid
+    if (res) {
+        clear_arr(self->sph, 3);
+        return 0;
+    } else {
+        char *msg;
+        asprintf(
+                &msg,
+                "Vector.y must be numeric, got \"%s\"",
+                Py_TYPE(y)->tp_name
+        );
+        PyErr_SetString(PyExc_TypeError, msg);
+        Py_DECREF(msg);
+        return -1;
+    }
+}
+
+static PyObject* get_z(VectorObject *self, void * closure) {
+    return Py_BuildValue("d", self->cart[2]);
+}
+
+static int
+set_z(VectorObject *self, PyObject *z, void* closure) {
+    bool res = check_float(z, self->cart + 2);
+    // clear spherical coordinates, since they are no more valid
+    if (res) {
+        clear_arr(self->sph, 3);
+        return 0;
+    } else {
+        char *msg;
+        asprintf(
+                &msg,
+                "Vector.z must be numeric, got \"%s\"",
+                Py_TYPE(z)->tp_name
+        );
+        PyErr_SetString(PyExc_TypeError, msg);
+        Py_DECREF(msg);
+        return -1;
+    }
+}
+
 // Spherical -----------------------------------------------------------------------------------------------------------
 static PyObject* get_sph(VectorObject *self, void * closure) {
     // R
@@ -69,6 +141,130 @@ static PyObject* get_sph(VectorObject *self, void * closure) {
     if (isnan(self->sph[2]))
         self->sph[2] = lon_from_cartesian(self->cart);
     return Py_BuildValue("(ddd)", self->sph[0], self->sph[1], self->sph[2]);
+}
+
+static int
+set_sph(VectorObject *self, PyObject *sph, void* closure) {
+    int res = check_array(sph, self->sph, "Vector spherical component");
+    if (res != 0) {
+        clear_arr(self->sph, 3);
+        return res;
+    }
+    spherical_to_cartesian_3(self->sph, self->cart);
+    return 0;
+}
+
+static PyObject* get_r(VectorObject *self, void * closure) {
+    if (isnan(self->sph[0]))
+        self->sph[0] = r_from_cartesian(self->cart);
+
+    return Py_BuildValue("d", self->sph[0]);
+}
+
+static int
+set_r(VectorObject *self, PyObject *r, void* closure) {
+    // R
+    if (isnan(self->sph[0]))
+        self->sph[0] = r_from_cartesian(self->cart);
+    // lat
+    if (isnan(self->sph[1]))
+        self->sph[1] = lat_from_cartesian(self->cart, self->sph[0]);
+    // lon
+    if (isnan(self->sph[2]))
+        self->sph[2] = lon_from_cartesian(self->cart);
+
+    bool res = check_float(r, self->sph);
+    if (res) {
+        // Update cartesian coordinates
+        spherical_to_cartesian_3(self->sph, self->cart);
+        return 0;
+    } else {
+        char *msg;
+        asprintf(
+                &msg,
+                "Vector.r must be numeric, got \"%s\"",
+                Py_TYPE(r)->tp_name
+        );
+        PyErr_SetString(PyExc_TypeError, msg);
+        Py_DECREF(msg);
+        return -1;
+    }
+}
+
+static PyObject* get_lat(VectorObject *self, void * closure) {
+    if (isnan(self->sph[0]))
+        self->sph[0] = r_from_cartesian(self->cart);
+    if (isnan(self->sph[1]))
+        self->sph[1] = lat_from_cartesian(self->cart, self->sph[0]);
+
+    return Py_BuildValue("d", self->sph[1]);
+}
+
+static int
+set_lat(VectorObject *self, PyObject *lat, void* closure) {
+    // R
+    if (isnan(self->sph[0]))
+        self->sph[0] = r_from_cartesian(self->cart);
+    // lat
+    if (isnan(self->sph[1]))
+        self->sph[1] = lat_from_cartesian(self->cart, self->sph[0]);
+    // lon
+    if (isnan(self->sph[2]))
+        self->sph[2] = lon_from_cartesian(self->cart);
+
+    bool res = check_float(lat, self->sph + 1);
+    if (res) {
+        // Update cartesian coordinates
+        spherical_to_cartesian_3(self->sph, self->cart);
+        return 0;
+    } else {
+        char *msg;
+        asprintf(
+                &msg,
+                "Vector.lat must be numeric, got \"%s\"",
+                Py_TYPE(lat)->tp_name
+        );
+        PyErr_SetString(PyExc_TypeError, msg);
+        Py_DECREF(msg);
+        return -1;
+    }
+}
+
+static PyObject* get_lon(VectorObject *self, void * closure) {
+    if (isnan(self->sph[2]))
+        self->sph[2] = lon_from_cartesian(self->cart);
+
+    return Py_BuildValue("d", self->sph[2]);
+}
+
+static int
+set_lon(VectorObject *self, PyObject *lon, void* closure) {
+    // R
+    if (isnan(self->sph[0]))
+        self->sph[0] = r_from_cartesian(self->cart);
+    // lat
+    if (isnan(self->sph[1]))
+        self->sph[1] = lat_from_cartesian(self->cart, self->sph[0]);
+    // lon
+    if (isnan(self->sph[2]))
+        self->sph[2] = lon_from_cartesian(self->cart);
+
+    bool res = check_float(lon, self->sph + 2);
+    if (res) {
+        // Update cartesian coordinates
+        spherical_to_cartesian_3(self->sph, self->cart);
+        return 0;
+    } else {
+        char *msg;
+        asprintf(
+                &msg,
+                "Vector.lon must be numeric, got \"%s\"",
+                Py_TYPE(lon)->tp_name
+        );
+        PyErr_SetString(PyExc_TypeError, msg);
+        Py_DECREF(msg);
+        return -1;
+    }
 }
 
 // Algebra -------------------------------------------------------------------------------------------------------------
@@ -175,20 +371,15 @@ static PyNumberMethods Vector_as_number = {
     .nb_negative = (unaryfunc) Vector_neg,
 };
 
-static int
-set_sph(VectorObject *self, PyObject *sph, void* closure) {
-    int res = check_array(sph, self->sph, "Vector spherical component");
-    if (res != 0) {
-        clear_arr(self->sph, 3);
-        return res;
-    }
-    spherical_to_cartesian_3(self->sph, self->cart);
-    return 0;
-}
-
 static PyGetSetDef Vector_get_sets[] = {
     {"cart", (getter) get_cart, (setter) set_cart, "Cartesian components", NULL},
+    {"x", (getter) get_x, (setter) set_x, "Cartesian \"X\" component", NULL},
+    {"y", (getter) get_y, (setter) set_y, "Cartesian \"Y\" component", NULL},
+    {"z", (getter) get_z, (setter) set_z, "Cartesian \"Z\" component", NULL},
     {"sph", (getter) get_sph, (setter) set_sph, "Spherical components", NULL},
+    {"r", (getter) get_r, (setter) set_r, "Spherical \"R\" component", NULL},
+    {"lat", (getter) get_lat, (setter) set_lat, "Spherical \"LAT\" component", NULL},
+    {"lon", (getter) get_lon, (setter) set_lon, "Spherical \"LON\" component", NULL},
     {NULL}
 };
 
