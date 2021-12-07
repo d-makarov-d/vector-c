@@ -1,5 +1,6 @@
 import unittest
 import numpy as np
+import pickle
 from astropy.coordinates import cartesian_to_spherical, spherical_to_cartesian
 
 from vector import Vector
@@ -391,6 +392,14 @@ class Components(unittest.TestCase):
             'Vector.lon must be numeric, got "str"',
             f,
         )
+
+
+class Pickle(unittest.TestCase):
+    def test_pickle(self):
+        v = Vector([1, 2, 3])
+        p = pickle.dumps(v)
+        v_load = pickle.loads(p)
+        self.assertEqual(v.cart, v_load.cart)
 
 
 class Math(unittest.TestCase):

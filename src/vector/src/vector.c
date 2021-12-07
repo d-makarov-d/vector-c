@@ -463,8 +463,45 @@ static PyObject *Vector_str(VectorObject *self) {
     return str;
 }
 
+static PyObject *
+Vector___getstate__(VectorObject *self, PyObject *Py_UNUSED(ignored)) {
+    return Py_BuildValue(
+        "{s(ddd)s(ddd)}",
+        "cart", self->cart[0], self->cart[1], self->cart[2],
+        "sph", self->sph[0], self->sph[1], self->sph[2]
+    );
+}
+
+static PyObject *
+Vector___setstate__(VectorObject *self, PyObject *state) {
+    if (!PyDict_CheckExact(state)) {
+        PyErr_SetString(PyExc_ValueError, "Pickled object is not a dict.");
+        return NULL;
+    }
+
+    PyObject* cart = PyDict_GetItemString(state, "cart");
+    if (cart == NULL) {
+        PyErr_SetString(PyExc_KeyError, "No \"cart\" in pickled dict.");
+        return NULL;
+    }
+    for (int i=0; i < 3; i++)
+        self->cart[i] = PyFloat_AsDouble(PyTuple_GetItem(cart, i));
+
+    PyObject* sph = PyDict_GetItemString(state, "sph");
+    if (sph == NULL) {
+        PyErr_SetString(PyExc_KeyError, "No \"sph\" in pickled dict.");
+        return NULL;
+    }
+    for (int i=0; i < 3; i++)
+        self->sph[i] = PyFloat_AsDouble(PyTuple_GetItem(sph, i));
+
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef Vector_methods[] = {
     {"dot", (PyCFunction) Vector_dot, METH_VARARGS, "Vectors dot product"},
+    {"__getstate__", (PyCFunction) Vector___getstate__, METH_NOARGS, "Pickle"},
+    {"__setstate__", (PyCFunction) Vector___setstate__, METH_O, "UnPickle"},
     {NULL}
 };
 
