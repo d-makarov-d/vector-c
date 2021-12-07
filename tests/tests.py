@@ -430,3 +430,18 @@ class Math(unittest.TestCase):
                         np.finfo(float).eps ** 0.5 >
                         max([abs(x - y) for x, y in zip((x, y, z), vec.cart)])
                     )
+
+    def test_dot(self):
+        v1 = Vector([1, 2, 3])
+        v2 = Vector([0.5, 2, 1])
+        self.assertEqual(v1.dot(v2), v2.dot(v1))
+        self.assertEqual(v1.dot(v2), 0.5 * 1 + 2 * 2 + 3 * 1)
+        self.assertRaisesRegex(
+            ValueError,
+            'Vector.dot takes another Vector as an argument, got object',
+            lambda: v1.dot(object())
+        )
+
+    def test_abs(self):
+        v = Vector([1, 2, 3])
+        self.assertEqual(abs(v), (1 + 4 + 9) ** 0.5)

@@ -364,11 +364,40 @@ Vector_neg(VectorObject *self) {
     return obj;
 }
 
+static PyObject *
+Vector_abs(VectorObject *self) {
+    return get_r(self, NULL);
+}
+
+static PyObject *
+Vector_dot(VectorObject *self, PyObject *args) {
+    PyObject* other = NULL;
+    if (!PyArg_ParseTuple(args, "|O", &other)) return NULL;
+    if (!is_subclass(other, &VectorType, "dot")) {
+        PyErr_Clear();
+        char *msg;
+        asprintf(
+                &msg,
+                "Vector.dot takes another Vector as an argument, got %s",
+                Py_TYPE(other)->tp_name
+        );
+        PyErr_SetString(PyExc_ValueError, msg);
+        Py_DECREF(msg);
+        return NULL;
+    }
+    float res = 0;
+    for (int i = 0; i< 3; i++) {
+        res += self->cart[i] * ((VectorObject *) other)->cart[i];
+    }
+    return Py_BuildValue("d", res);
+}
+
 static PyNumberMethods Vector_as_number = {
     .nb_add = Vector_add,
     .nb_subtract = Vector_sub,
     .nb_multiply = Vector_mul,
     .nb_negative = (unaryfunc) Vector_neg,
+    .nb_absolute = (unaryfunc) Vector_abs,
 };
 
 static PyGetSetDef Vector_get_sets[] = {
@@ -434,6 +463,11 @@ static PyObject *Vector_str(VectorObject *self) {
     return str;
 }
 
+static PyMethodDef Vector_methods[] = {
+    {"dot", (PyCFunction) Vector_dot, METH_VARARGS, "Vectors dot product"},
+    {NULL}
+};
+
 static PyTypeObject VectorType = {
     PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name = "vector.Vector",
@@ -445,6 +479,7 @@ static PyTypeObject VectorType = {
     .tp_dealloc = (destructor) Vector_dealloc,
     .tp_new = Vector_new,
     .tp_getset = Vector_get_sets,
+    .tp_methods = Vector_methods,
     .tp_as_number = &Vector_as_number,
     .tp_hash = (hashfunc) Vector_hash,
     .tp_richcompare = Vector_richcompare,
