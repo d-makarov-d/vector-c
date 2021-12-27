@@ -385,7 +385,7 @@ Vector_dot(VectorObject *self, PyObject *args) {
         Py_DECREF(msg);
         return NULL;
     }
-    float res = 0;
+    double res = 0;
     for (int i = 0; i< 3; i++) {
         res += self->cart[i] * ((VectorObject *) other)->cart[i];
     }
